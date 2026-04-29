@@ -1,0 +1,210 @@
+.chisel-menu,
+.chisel-more-menu {
+  position: fixed;
+  z-index: var(--layer-popover);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  max-width: min(92vw, 720px);
+  padding: 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+
+.chisel-menu {
+  flex-wrap: nowrap;
+}
+
+.chisel-more-menu {
+  flex-direction: column;
+  align-items: flex-start;
+  width: max-content;
+  min-width: 168px;
+  max-width: min(320px, calc(100vw - 16px));
+}
+
+.chisel-menu-item {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 0;
+  color: var(--text-normal);
+  background: transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.chisel-menu-item:hover,
+.chisel-menu-item:focus-visible {
+  color: var(--text-accent);
+  background: transparent;
+}
+
+.chisel-menu-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+
+.chisel-result-modal-shell {
+  width: min(960px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+.chisel-result-modal {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  max-height: calc(100vh - 96px);
+  overflow: hidden;
+}
+
+.chisel-result-header {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  min-width: 0;
+}
+
+.chisel-result-header h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-ui-large);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.chisel-result-status {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+.chisel-result-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.chisel-result-pane {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chisel-result-pane h3 {
+  margin: 0 0 8px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  font-weight: 600;
+}
+
+.chisel-result-pane pre,
+.chisel-result-text {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-height: 180px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
+.chisel-result-pane pre {
+  white-space: pre-wrap;
+}
+
+.chisel-result-text {
+  overflow-y: auto;
+}
+
+.chisel-result-text > :first-child {
+  margin-top: 0;
+}
+
+.chisel-result-text > :last-child {
+  margin-bottom: 0;
+}
+
+.chisel-result-footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.chisel-result-footer button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  max-width: 100%;
+}
+
+.chisel-provider,
+.chisel-custom-action {
+  margin: 8px 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+}
+
+.chisel-provider summary,
+.chisel-custom-action summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.chisel-prompt-textarea,
+.chisel-import-export {
+  width: 100%;
+  min-height: 140px;
+  font-family: var(--font-monospace);
+}
+
+@media (max-width: 560px) {
+  .chisel-menu {
+    left: 8px !important;
+    right: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .chisel-result-footer {
+    justify-content: stretch;
+  }
+
+  .chisel-result-footer button {
+    flex: 1 1 140px;
+    justify-content: center;
+  }
+
+  .chisel-more-menu {
+    max-width: calc(100vw - 16px);
+  }
+}
