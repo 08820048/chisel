@@ -1,4 +1,4 @@
-import { App, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type ChiselPlugin from "../main";
 import type { CustomActionConfig, OutputMode, ProviderConfig, TriggerMode } from "../types";
 import { LANGUAGE_OPTIONS, LOCALE_OPTIONS, type Locale, languageLabel, normalizeLanguage, t } from "../i18n";
@@ -33,6 +33,8 @@ const TRIGGER_OPTIONS: Record<Locale, Record<TriggerMode, string>> = {
 
 export class ChiselSettingTab extends PluginSettingTab {
   private importExportValue = "";
+  private providerFilter = "";
+  private selectedProviderId = "";
 
   constructor(app: App, private readonly plugin: ChiselPlugin) {
     super(app, plugin);
@@ -123,129 +125,290 @@ export class ChiselSettingTab extends PluginSettingTab {
   private renderProviders(containerEl: HTMLElement): void {
     containerEl.createEl("h3", { text: t(this.locale, "provider.title") });
 
-    for (const provider of this.plugin.settings.providers) {
-      const details = containerEl.createEl("details", { cls: "chisel-provider" });
-      details.createEl("summary", { text: provider.name });
-
-      new Setting(details)
-        .setName(t(this.locale, "provider.name"))
-        .addText((text) =>
-          text.setValue(provider.name).onChange(async (value) => {
-            provider.name = value || provider.name;
-            await this.plugin.saveSettings();
-          })
-        );
-
-      new Setting(details)
-        .setName(t(this.locale, "provider.baseUrl"))
-        .addText((text) =>
-          text.setValue(provider.baseURL).onChange(async (value) => {
-            provider.baseURL = value.trim();
-            provider.models = [];
-            provider.modelsFetchedAt = undefined;
-            await this.plugin.saveSettings();
-          })
-        );
-
-      const previousApiKey = provider.apiKey;
-      new Setting(details)
-        .setName(t(this.locale, "provider.apiKey"))
-        .addText((text) => {
-          text.inputEl.type = "password";
-          text.setPlaceholder(
-            provider.type === "custom" ? t(this.locale, "provider.placeholderOptional") : t(this.locale, "provider.placeholderRequired")
-          );
-          text.setValue(provider.apiKey);
-          text.onChange(async (value) => {
-            provider.apiKey = value;
-            provider.models = [];
-            provider.modelsFetchedAt = undefined;
-            await this.plugin.saveSettings();
-          });
-          text.inputEl.addEventListener("blur", () => {
-            if (provider.apiKey && provider.apiKey !== previousApiKey) {
-              void this.fetchProviderModels(provider);
-            }
-          });
-        });
-
-      new Setting(details)
-        .setName(t(this.locale, "model.current"))
-        .setDesc(t(this.locale, "model.currentDesc"))
-        .addText((text) =>
-          text.setValue(provider.model).onChange(async (value) => {
-            provider.model = value.trim();
-            await this.plugin.saveSettings();
-          })
-        );
-
-      new Setting(details)
-        .setName(t(this.locale, "model.list"))
-        .setDesc(this.modelListDescription(provider))
-        .addDropdown((dropdown) => {
-          const models = provider.models ?? [];
-          if (models.length === 0) {
-            dropdown.addOption(provider.model, provider.model || t(this.locale, "common.notFetched"));
-            dropdown.setDisabled(true);
-          } else {
-            for (const model of models) {
-              dropdown.addOption(model, model);
-            }
-            if (provider.model && !models.includes(provider.model)) {
-              dropdown.addOption(provider.model, `${provider.model} (${t(this.locale, "common.manual")})`);
-            }
-            dropdown.setValue(provider.model);
-          }
-          dropdown.onChange(async (value) => {
-            provider.model = value;
-            await this.plugin.saveSettings();
-            this.display();
-          });
-        })
-        .addButton((button) =>
-          button.setButtonText(t(this.locale, "model.fetch")).onClick(async () => {
-            await this.fetchProviderModels(provider);
-          })
-        );
-
-      new Setting(details)
-        .setName(t(this.locale, "provider.connection"))
-        .addButton((button) =>
-          button.setButtonText(t(this.locale, "provider.test")).onClick(async () => {
-            await this.testProvider(provider);
-          })
-        )
-        .addButton((button) => {
-          button.setButtonText(t(this.locale, "provider.delete"));
-          button.setDisabled(provider.type !== "custom");
-          button.onClick(async () => {
-            this.plugin.settings.providers = this.plugin.settings.providers.filter((item) => item.id !== provider.id);
-            if (this.plugin.settings.defaultProviderId === provider.id) {
-              this.plugin.settings.defaultProviderId = "openai";
-            }
-            await this.plugin.saveSettings();
-            this.display();
-          });
-        });
+    const providers = this.plugin.settings.providers;
+    if (!providers.some((provider) => provider.id === this.selectedProviderId)) {
+      this.selectedProviderId = this.plugin.settings.defaultProviderId || providers[0]?.id || "";
     }
 
-    new Setting(containerEl)
-      .setName(t(this.locale, "provider.add"))
-      .setDesc(t(this.locale, "provider.addDesc"))
-      .addButton((button) =>
-        button.setButtonText(t(this.locale, "provider.add")).setCta().onClick(async () => {
-          this.plugin.settings.providers.push({
-            id: `custom-${Date.now()}`,
-            name: "My Local Model",
-            type: "custom",
-            baseURL: "http://localhost:11434/v1",
-            apiKey: "",
-            model: "llama3.2"
-          });
-          await this.plugin.saveSettings();
-          this.display();
-        })
-      );
+    const selectedProvider = providers.find((provider) => provider.id === this.selectedProviderId) ?? providers[0];
+    if (!selectedProvider) return;
+
+    const manager = containerEl.createDiv({ cls: "chisel-provider-manager" });
+    const toolbar = manager.createDiv({ cls: "chisel-provider-toolbar" });
+    const searchWrap = toolbar.createDiv({ cls: "chisel-provider-search" });
+    setIcon(searchWrap.createSpan({ cls: "chisel-provider-search-icon" }), "search");
+    const searchInput = searchWrap.createEl("input", {
+      attr: {
+        placeholder: this.locale === "zh" ? "搜索提供商..." : "Search providers...",
+        type: "search"
+      },
+      value: this.providerFilter
+    });
+    searchInput.addEventListener("input", () => {
+      this.providerFilter = searchInput.value;
+      this.display();
+    });
+
+    const addButton = toolbar.createEl("button", { cls: "mod-cta chisel-provider-add-button" });
+    setIcon(addButton, "plus");
+    addButton.createSpan({ text: this.locale === "zh" ? "添加自定义提供商" : "Add Custom Provider" });
+    addButton.addEventListener("click", async () => {
+      const provider = this.createCustomProvider();
+      this.plugin.settings.providers.push(provider);
+      this.selectedProviderId = provider.id;
+      await this.plugin.saveSettings();
+      this.display();
+    });
+
+    const body = manager.createDiv({ cls: "chisel-provider-body" });
+    const list = body.createDiv({ cls: "chisel-provider-list" });
+    const normalizedFilter = this.providerFilter.trim().toLowerCase();
+    const visibleProviders = providers.filter((provider) => {
+      if (!normalizedFilter) return true;
+      return `${provider.name} ${provider.model} ${provider.baseURL}`.toLowerCase().includes(normalizedFilter);
+    });
+
+    for (const provider of visibleProviders) {
+      list.append(this.createProviderListItem(provider));
+    }
+
+    if (visibleProviders.length === 0) {
+      list.createDiv({
+        cls: "chisel-provider-empty",
+        text: this.locale === "zh" ? "没有匹配的提供商" : "No providers found"
+      });
+    }
+
+    const panel = body.createDiv({ cls: "chisel-provider-panel" });
+    this.renderProviderPanel(panel, selectedProvider);
+  }
+
+  private createProviderListItem(provider: ProviderConfig): HTMLElement {
+    const isSelected = provider.id === this.selectedProviderId;
+    const isDefault = provider.id === this.plugin.settings.defaultProviderId;
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = `chisel-provider-list-item${isSelected ? " is-selected" : ""}`;
+
+    const icon = item.createSpan({ cls: "chisel-provider-list-icon" });
+    setIcon(icon, this.providerIcon(provider));
+
+    const text = item.createSpan({ cls: "chisel-provider-list-name", text: provider.name });
+
+    if (provider.type === "custom") {
+      text.createSpan({ cls: "chisel-provider-custom-badge", text: "CUSTOM" });
+    }
+
+    item.createSpan({ cls: `chisel-provider-status-dot${provider.apiKey || provider.type === "custom" ? " is-active" : ""}` });
+    if (isDefault) {
+      item.setAttr("aria-label", `${provider.name} (${t(this.locale, "general.defaultProvider")})`);
+    }
+
+    item.addEventListener("click", () => {
+      this.selectedProviderId = provider.id;
+      this.display();
+    });
+
+    return item;
+  }
+
+  private renderProviderPanel(container: HTMLElement, provider: ProviderConfig): void {
+    const header = container.createDiv({ cls: "chisel-provider-panel-header" });
+    const titleWrap = header.createDiv({ cls: "chisel-provider-title-wrap" });
+    titleWrap.createEl("h4", { text: provider.name });
+    titleWrap.createDiv({ cls: "chisel-provider-subtitle", text: this.providerDescription(provider) });
+
+    const headerActions = header.createDiv({ cls: "chisel-provider-header-actions" });
+    const testButton = headerActions.createEl("button", { cls: "clickable-icon" });
+    testButton.setAttr("aria-label", t(this.locale, "provider.test"));
+    testButton.setAttr("title", t(this.locale, "provider.test"));
+    setIcon(testButton, "zap");
+    testButton.addEventListener("click", () => void this.testProvider(provider));
+
+    const defaultLabel = headerActions.createEl("label", { cls: "chisel-provider-default-toggle" });
+    const defaultInput = defaultLabel.createEl("input", { attr: { type: "checkbox" } });
+    defaultInput.checked = provider.id === this.plugin.settings.defaultProviderId;
+    defaultInput.addEventListener("change", async () => {
+      this.plugin.settings.defaultProviderId = provider.id;
+      await this.plugin.saveSettings();
+      this.display();
+    });
+    defaultLabel.createSpan({ cls: "chisel-provider-switch" });
+
+    this.createProviderField(container, {
+      label: t(this.locale, "provider.name"),
+      value: provider.name,
+      onChange: async (value) => {
+        provider.name = value || provider.name;
+        await this.plugin.saveSettings();
+      }
+    });
+
+    const previousApiKey = provider.apiKey;
+    this.createProviderField(container, {
+      label: t(this.locale, "provider.apiKey"),
+      placeholder: provider.type === "custom" ? t(this.locale, "provider.placeholderOptional") : t(this.locale, "provider.placeholderRequired"),
+      type: "password",
+      value: provider.apiKey,
+      helper: this.locale === "zh" ? "API Key 仅保存在本地插件数据中" : "API keys are stored locally in plugin data",
+      rightIcon: "eye",
+      onChange: async (value) => {
+        provider.apiKey = value;
+        provider.models = [];
+        provider.modelsFetchedAt = undefined;
+        await this.plugin.saveSettings();
+      },
+      onBlur: () => {
+        if (provider.apiKey && provider.apiKey !== previousApiKey) {
+          void this.fetchProviderModels(provider);
+        }
+      }
+    });
+
+    this.createProviderField(container, {
+      label: t(this.locale, "provider.baseUrl"),
+      value: provider.baseURL,
+      helper: provider.type === "custom" ? t(this.locale, "provider.addDesc") : this.locale === "zh" ? "保留默认值即可使用官方 API 端点" : "Keep the default value to use the official API endpoint",
+      onChange: async (value) => {
+        provider.baseURL = value.trim();
+        provider.models = [];
+        provider.modelsFetchedAt = undefined;
+        await this.plugin.saveSettings();
+      }
+    });
+
+    const modelSection = container.createDiv({ cls: "chisel-provider-field" });
+    modelSection.createEl("label", { text: t(this.locale, "model.current") });
+    const modelRow = modelSection.createDiv({ cls: "chisel-provider-model-row" });
+    const models = provider.models ?? [];
+    if (models.length > 0) {
+      const select = modelRow.createEl("select");
+      for (const model of models) {
+        select.createEl("option", { value: model, text: model });
+      }
+      if (provider.model && !models.includes(provider.model)) {
+        select.createEl("option", { value: provider.model, text: `${provider.model} (${t(this.locale, "common.manual")})` });
+      }
+      select.value = provider.model;
+      select.addEventListener("change", async () => {
+        provider.model = select.value;
+        await this.plugin.saveSettings();
+      });
+    } else {
+      const input = modelRow.createEl("input", {
+        attr: { type: "text", placeholder: t(this.locale, "common.notFetched") },
+        value: provider.model
+      });
+      input.addEventListener("change", async () => {
+        provider.model = input.value.trim();
+        await this.plugin.saveSettings();
+      });
+    }
+
+    const fetchButton = modelRow.createEl("button");
+    fetchButton.createSpan({ text: t(this.locale, "model.fetch") });
+    fetchButton.addEventListener("click", () => void this.fetchProviderModels(provider));
+    modelSection.createDiv({ cls: "chisel-provider-helper", text: this.modelListDescription(provider) });
+
+    const footer = container.createDiv({ cls: "chisel-provider-panel-footer" });
+    if (provider.type === "custom") {
+      const deleteButton = footer.createEl("button");
+      setIcon(deleteButton, "trash-2");
+      deleteButton.createSpan({ text: t(this.locale, "provider.delete") });
+      deleteButton.addEventListener("click", async () => {
+        this.plugin.settings.providers = this.plugin.settings.providers.filter((item) => item.id !== provider.id);
+        if (this.plugin.settings.defaultProviderId === provider.id) {
+          this.plugin.settings.defaultProviderId = this.plugin.settings.providers[0]?.id ?? "openai";
+        }
+        this.selectedProviderId = this.plugin.settings.defaultProviderId;
+        await this.plugin.saveSettings();
+        this.display();
+      });
+    }
+  }
+
+  private createProviderField(
+    container: HTMLElement,
+    options: {
+      helper?: string;
+      label: string;
+      onBlur?: () => void;
+      onChange: (value: string) => Promise<void>;
+      placeholder?: string;
+      rightIcon?: string;
+      type?: string;
+      value: string;
+    }
+  ): void {
+    const field = container.createDiv({ cls: "chisel-provider-field" });
+    field.createEl("label", { text: options.label });
+    const inputWrap = field.createDiv({ cls: "chisel-provider-input-wrap" });
+    const input = inputWrap.createEl("input", {
+      attr: {
+        placeholder: options.placeholder ?? "",
+        type: options.type ?? "text"
+      },
+      value: options.value
+    });
+
+    input.addEventListener("change", () => void options.onChange(input.value));
+    input.addEventListener("blur", () => options.onBlur?.());
+
+    if (options.rightIcon) {
+      const iconButton = inputWrap.createEl("button", { cls: "clickable-icon chisel-provider-input-icon" });
+      iconButton.type = "button";
+      setIcon(iconButton, options.rightIcon);
+      iconButton.addEventListener("click", () => {
+        if (input.type === "password") {
+          input.type = "text";
+          setIcon(iconButton, "eye-off");
+        } else {
+          input.type = options.type ?? "text";
+          setIcon(iconButton, options.rightIcon ?? "eye");
+        }
+      });
+    }
+
+    if (options.helper) {
+      field.createDiv({ cls: "chisel-provider-helper", text: options.helper });
+    }
+  }
+
+  private createCustomProvider(): ProviderConfig {
+    return {
+      id: `custom-${Date.now()}`,
+      name: "My Local Model",
+      type: "custom",
+      baseURL: "http://localhost:11434/v1",
+      apiKey: "",
+      model: "llama3.2"
+    };
+  }
+
+  private providerDescription(provider: ProviderConfig): string {
+    if (provider.type === "custom") {
+      return this.locale === "zh" ? "OpenAI 兼容协议的自定义模型服务" : "Custom OpenAI-compatible model service";
+    }
+
+    const descriptions: Record<string, string> = {
+      anthropic: "Claude models including Sonnet and Opus",
+      deepseek: "DeepSeek chat and reasoning models",
+      gemini: "Gemini models through the OpenAI-compatible API",
+      openai: "OpenAI models including GPT-5, o3, and GPT-4o"
+    };
+
+    return descriptions[provider.id] ?? `${provider.name} models`;
+  }
+
+  private providerIcon(provider: ProviderConfig): string {
+    const icons: Record<string, string> = {
+      anthropic: "sparkles",
+      deepseek: "waves",
+      gemini: "diamond",
+      openai: "bot"
+    };
+
+    return icons[provider.id] ?? (provider.type === "custom" ? "blocks" : "cpu");
   }
 
   private renderMenuConfig(containerEl: HTMLElement): void {
