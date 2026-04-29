@@ -1,6 +1,6 @@
 {
   "name": "obsidian-chisel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Selection-first AI actions for Obsidian.",
   "main": "main.js",
   "scripts": {
