@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { Notice, Plugin, setIcon } from "obsidian";
 import { ActionRegistry } from "./actions/ActionRegistry";
 import { ActionRunner } from "./core/ActionRunner";
 import { SelectionHandler } from "./core/SelectionHandler";
@@ -7,6 +7,7 @@ import { ProviderManager, createDefaultProviders } from "./providers/ProviderMan
 import { ChiselSettingTab } from "./ui/SettingsTab";
 import { SelectionMenu } from "./ui/SelectionMenu";
 import { normalizeLanguage } from "./i18n";
+import { DonationModal } from "./ui/DonationModal";
 
 const DEFAULT_SETTINGS: ChiselSettings = {
   locale: "zh",
@@ -31,6 +32,7 @@ export default class ChiselPlugin extends Plugin {
   private selectionHandler!: SelectionHandler;
   private selectionMenu!: SelectionMenu;
   private actionRunner!: ActionRunner;
+  private donationObserver: MutationObserver | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -58,6 +60,7 @@ export default class ChiselPlugin extends Plugin {
 
     this.addSettingTab(new ChiselSettingTab(this.app, this));
     this.registerCommands();
+    this.registerDonationButtonInjector();
 
     this.registerDomEvent(document, "keydown", (event) => {
       if (event.key !== "Escape") return;
@@ -69,6 +72,7 @@ export default class ChiselPlugin extends Plugin {
   onunload(): void {
     this.selectionMenu.destroy();
     this.actionRunner.cancelCurrent();
+    this.donationObserver?.disconnect();
   }
 
   async loadSettings(): Promise<void> {
@@ -81,12 +85,12 @@ export default class ChiselPlugin extends Plugin {
       providers: mergedProviders,
       actionPreferences: loaded?.actionPreferences ?? {},
       customActions: loaded?.customActions ?? [],
-    translation: {
-      ...DEFAULT_SETTINGS.translation,
-      ...loaded?.translation,
-      sourceLanguage: normalizeLanguage(loaded?.translation?.sourceLanguage, DEFAULT_SETTINGS.translation.sourceLanguage),
-      targetLanguage: normalizeLanguage(loaded?.translation?.targetLanguage, DEFAULT_SETTINGS.translation.targetLanguage)
-    }
+      translation: {
+        ...DEFAULT_SETTINGS.translation,
+        ...loaded?.translation,
+        sourceLanguage: normalizeLanguage(loaded?.translation?.sourceLanguage, DEFAULT_SETTINGS.translation.sourceLanguage),
+        targetLanguage: normalizeLanguage(loaded?.translation?.targetLanguage, DEFAULT_SETTINGS.translation.targetLanguage)
+      }
     };
   }
 
@@ -95,6 +99,12 @@ export default class ChiselPlugin extends Plugin {
   }
 
   private registerCommands(): void {
+    this.addCommand({
+      id: "open-donation-dialog",
+      name: this.settings.locale === "zh" ? "打开 Chisel 捐赠弹窗" : "Open Chisel donation dialog",
+      callback: () => this.openDonationModal()
+    });
+
     this.addCommand({
       id: "show-selection-menu",
       name: this.settings.locale === "zh" ? "显示 Chisel 划词菜单" : "Show Chisel selection menu",
@@ -128,6 +138,55 @@ export default class ChiselPlugin extends Plugin {
         }
       });
     }
+  }
+
+  private openDonationModal(): void {
+    new DonationModal(this.app, this.settings.locale).open();
+  }
+
+  private registerDonationButtonInjector(): void {
+    const inject = () => this.injectDonationButton();
+    this.donationObserver = new MutationObserver(inject);
+    this.donationObserver.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    window.setTimeout(inject, 300);
+  }
+
+  private injectDonationButton(): void {
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>(".setting-item, .community-plugin, .community-plugin-item, .installed-plugin")
+    );
+
+    const pluginRow = rows.find((row) => {
+      const text = row.textContent ?? "";
+      return text.includes("Chisel") && text.includes("Selection-first AI actions");
+    });
+
+    if (!pluginRow || pluginRow.querySelector(".chisel-plugin-list-donate-button")) {
+      return;
+    }
+
+    const controls =
+      pluginRow.querySelector<HTMLElement>(".setting-item-control") ??
+      pluginRow.querySelector<HTMLElement>(".community-plugin-controls") ??
+      pluginRow;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "clickable-icon chisel-plugin-list-donate-button";
+    button.setAttr("aria-label", this.settings.locale === "zh" ? "支持 Chisel" : "Support Chisel");
+    button.setAttr("title", this.settings.locale === "zh" ? "支持 Chisel" : "Support Chisel");
+    setIcon(button, "heart-handshake");
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.openDonationModal();
+    });
+
+    controls.append(button);
   }
 }
 

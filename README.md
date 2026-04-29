@@ -35,6 +35,12 @@ Then enable the plugin in Obsidian community plugin settings.
 
 Chisel stores API keys locally through Obsidian's plugin data file. Selected text is sent only to the provider configured by the user for the action being run. Chisel does not collect telemetry.
 
+## Support
+
+If Chisel saves you time, you can support ongoing maintenance on Ko-fi:
+
+https://ko-fi.com/xuyi
+
 ## Release
 
 Create a semantic version tag that matches `manifest.json`.

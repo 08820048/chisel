@@ -180,6 +180,55 @@
   font-weight: 600;
 }
 
+.chisel-plugin-list-donate-button {
+  color: var(--text-muted);
+}
+
+.chisel-plugin-list-donate-button:hover,
+.chisel-plugin-list-donate-button:focus-visible {
+  color: var(--text-accent);
+}
+
+.chisel-donation-modal {
+  max-width: 560px;
+}
+
+.chisel-donation-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.chisel-donation-header h2 {
+  margin: 0;
+}
+
+.chisel-donation-header-icon {
+  display: inline-flex;
+  color: var(--text-accent);
+}
+
+.chisel-donation-url {
+  display: inline-block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.chisel-donation-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.chisel-donation-footer button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .chisel-prompt-textarea,
 .chisel-import-export {
   width: 100%;
