@@ -180,31 +180,8 @@
   justify-content: space-between;
 }
 
-.chisel-provider-search {
-  position: relative;
-  flex: 0 1 260px;
-}
-
-.chisel-provider-search input {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 38px;
-  padding-left: 34px;
-  border: 1px solid var(--background-modifier-border);
-  border-radius: 8px;
-  background: var(--background-primary);
-}
-
-.chisel-provider-search-icon {
-  position: absolute;
-  top: 50%;
-  left: 11px;
-  display: inline-flex;
-  width: 15px;
-  height: 15px;
-  color: var(--text-muted);
-  transform: translateY(-50%);
-  pointer-events: none;
+.chisel-provider-toolbar-spacer {
+  flex: 1 1 auto;
 }
 
 .chisel-provider-add-button {
@@ -269,6 +246,13 @@
 
 .chisel-provider-list-icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.chisel-provider-list-icon svg {
   width: 20px;
   height: 20px;
 }
@@ -302,12 +286,6 @@
   background: var(--interactive-accent);
 }
 
-.chisel-provider-empty {
-  padding: 18px 10px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
 .chisel-provider-panel {
   min-height: 460px;
   padding: 24px;
@@ -321,7 +299,24 @@
   margin-bottom: 22px;
 }
 
+.chisel-provider-panel-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  margin-top: 1px;
+  color: var(--text-normal);
+}
+
+.chisel-provider-panel-logo svg {
+  width: 26px;
+  height: 26px;
+}
+
 .chisel-provider-title-wrap {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -408,13 +403,22 @@
 
 .chisel-provider-input-wrap input,
 .chisel-provider-model-row input,
-.chisel-provider-model-row select {
+.chisel-provider-model-row select,
+.chisel-provider-readonly-value {
   box-sizing: border-box;
   width: 100%;
   min-height: 38px;
   border: 1px solid var(--background-modifier-border);
   border-radius: 8px;
   background: var(--background-primary);
+}
+
+.chisel-provider-readonly-value {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
 }
 
 .chisel-provider-input-wrap input {
@@ -547,11 +551,6 @@
   .chisel-provider-toolbar,
   .chisel-provider-panel-header {
     align-items: stretch;
-    flex-direction: column;
-  }
-
-  .chisel-provider-search {
-    flex-basis: auto;
   }
 
   .chisel-provider-body {

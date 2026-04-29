@@ -65,6 +65,7 @@ interface ResultModalOptions {
 
 export class ResultModal extends Modal {
   private result = "";
+  private titleElRef!: HTMLHeadingElement;
   private contentElRef!: HTMLDivElement;
   private renderComponent = new Component();
   private statusEl!: HTMLDivElement;
@@ -85,7 +86,7 @@ export class ResultModal extends Modal {
     contentEl.addClass("chisel-result-modal");
 
     const header = contentEl.createDiv({ cls: "chisel-result-header" });
-    header.createEl("h2", { text: `${this.options.actionName} · ${this.options.model}` });
+    this.titleElRef = header.createEl("h2", { text: `${this.options.actionName} · ${this.options.model}` });
     this.statusEl = header.createDiv({ cls: "chisel-result-status", text: this.labels.generating });
 
     const body = contentEl.createDiv({ cls: "chisel-result-body" });
@@ -129,6 +130,17 @@ export class ResultModal extends Modal {
   appendChunk(chunk: string): void {
     this.result += chunk;
     this.scheduleRender();
+  }
+
+  hasResult(): boolean {
+    return this.result.length > 0;
+  }
+
+  resetResult(model: string): void {
+    this.result = "";
+    this.titleElRef.setText(`${this.options.actionName} · ${model}`);
+    this.statusEl.setText(this.labels.generating);
+    this.contentElRef.empty();
   }
 
   finish(): void {

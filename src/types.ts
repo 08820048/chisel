@@ -17,6 +17,7 @@ export interface ProviderConfig {
   baseURL: string;
   apiKey: string;
   model: string;
+  enabled?: boolean;
   models?: string[];
   modelsFetchedAt?: string;
 }

@@ -1,7 +1,7 @@
 import { App, Notice } from "obsidian";
 import { PromptBuilder } from "./PromptBuilder";
 import { EditorWriter } from "./EditorWriter";
-import type { ActionContext, ChiselAction, ChiselSettings, OutputMode } from "../types";
+import type { ActionContext, ChatMessage, ChiselAction, ChiselSettings, OutputMode, ProviderConfig } from "../types";
 import { ProviderManager } from "../providers/ProviderManager";
 import { ResultModal } from "../ui/ResultModal";
 
@@ -29,14 +29,14 @@ export class ActionRunner {
 
     const settings = this.getSettings();
     const providerId = action.providerId || settings.actionPreferences[action.id]?.providerId || settings.defaultProviderId;
-    const providerConfig = this.providerManager.getProviderConfig(providerId);
     const locale = settings.locale;
+    const providerConfigs = this.providerManager.getRunnableProviders(providerId);
 
-    if (!providerConfig.apiKey && providerConfig.type !== "custom") {
+    if (providerConfigs.length === 0) {
       new Notice(
         locale === "zh"
-          ? `请先在 Chisel 设置中配置 ${providerConfig.name} API Key`
-          : `Configure the ${providerConfig.name} API key in Chisel settings first`
+          ? "没有可用的模型提供商。请先配置 API Key 并启用至少一个 Provider。"
+          : "No available providers. Configure an API key and enable at least one provider first."
       );
       return;
     }
@@ -47,21 +47,15 @@ export class ActionRunner {
     this.running = request;
 
     const messages = this.promptBuilder.build(action, context);
-    const provider = this.providerManager.getProvider(providerConfig.id);
     const output = action.output || settings.defaultOutput;
-    const stream = provider.complete(messages, {
-      stream: true,
-      signal: controller.signal,
-      model: action.model,
-      timeoutMs: settings.requestTimeoutMs
-    });
 
     try {
       if (output === "popup" || output === "diff") {
-        await this.runInModal(action, context, providerConfig.model, output, stream, request);
+        await this.runInModal(action, context, providerConfigs, messages, output, request);
       } else {
         new Notice(locale === "zh" ? `${action.name}生成中，按 Esc 可取消` : `${action.name} is generating. Press Esc to cancel.`);
-        await this.writer.streamResult(context.editor, context.range, stream, output, controller.signal);
+        const result = await this.collectWithFallback(providerConfigs, messages, action, request);
+        this.writer.applyResult(context.editor, context.range, result, output);
         new Notice(locale === "zh" ? `${action.name}完成` : `${action.name} complete`);
       }
     } catch (error) {
@@ -91,15 +85,16 @@ export class ActionRunner {
   private async runInModal(
     action: ChiselAction,
     context: ActionContext,
-    model: string,
+    providerConfigs: ProviderConfig[],
+    messages: ChatMessage[],
     output: OutputMode,
-    stream: AsyncIterable<string>,
     request: RunningRequest
   ): Promise<void> {
+    const firstProvider = providerConfigs[0];
     const modal = new ResultModal(this.app, {
       actionName: action.name,
       locale: this.getSettings().locale,
-      model,
+      model: `${firstProvider.name} · ${action.model || firstProvider.model}`,
       original: context.selection,
       defaultOutput: output,
       onApply: (mode, result) => this.writer.applyResult(context.editor, context.range, result, mode),
@@ -109,11 +104,68 @@ export class ActionRunner {
     request.modal = modal;
     modal.open();
 
-    for await (const chunk of stream) {
-      if (request.controller.signal.aborted) break;
-      modal.appendChunk(chunk);
+    const errors: string[] = [];
+    for (const providerConfig of providerConfigs) {
+      if (modal.hasResult()) {
+        break;
+      }
+
+      modal.resetResult(`${providerConfig.name} · ${action.model || providerConfig.model}`);
+      try {
+        const stream = this.createStream(providerConfig, messages, action, request);
+        for await (const chunk of stream) {
+          if (request.controller.signal.aborted) throw new Error("Request aborted");
+          modal.appendChunk(chunk);
+        }
+        modal.finish();
+        return;
+      } catch (error) {
+        if (request.controller.signal.aborted) throw error;
+        errors.push(`${providerConfig.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
 
-    modal.finish();
+    modal.setError(errors.join("\n\n"));
+  }
+
+  private async collectWithFallback(
+    providerConfigs: ProviderConfig[],
+    messages: ChatMessage[],
+    action: ChiselAction,
+    request: RunningRequest
+  ): Promise<string> {
+    const errors: string[] = [];
+    for (const providerConfig of providerConfigs) {
+      try {
+        let result = "";
+        const stream = this.createStream(providerConfig, messages, action, request);
+        for await (const chunk of stream) {
+          if (request.controller.signal.aborted) throw new Error("Request aborted");
+          result += chunk;
+        }
+        return result;
+      } catch (error) {
+        if (request.controller.signal.aborted) throw error;
+        errors.push(`${providerConfig.name}: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    throw new Error(errors.join("\n\n"));
+  }
+
+  private createStream(
+    providerConfig: ProviderConfig,
+    messages: ChatMessage[],
+    action: ChiselAction,
+    request: RunningRequest
+  ): AsyncIterable<string> {
+    const settings = this.getSettings();
+    const provider = this.providerManager.createProvider(providerConfig);
+    return provider.complete(messages, {
+      stream: true,
+      signal: request.controller.signal,
+      model: action.model,
+      timeoutMs: settings.requestTimeoutMs
+    });
   }
 }

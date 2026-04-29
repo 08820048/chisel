@@ -41,6 +41,10 @@ If Chisel saves you time, you can support ongoing maintenance on Ko-fi:
 
 https://ko-fi.com/xuyi
 
+## Attribution
+
+Provider logos are from [Lobe Icons](https://github.com/lobehub/lobe-icons), licensed under MIT.
+
 ## Release
 
 Create a semantic version tag that matches `manifest.json`.

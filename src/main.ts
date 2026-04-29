@@ -192,11 +192,20 @@ export default class ChiselPlugin extends Plugin {
 
 function mergeProviders(loadedProviders: ChiselSettings["providers"]): ChiselSettings["providers"] {
   const defaults = createDefaultProviders();
-  const merged = defaults.map((provider) => ({
-    ...provider,
-    ...loadedProviders.find((item) => item.id === provider.id)
-  }));
+  const merged = defaults.map((provider) => {
+    const loadedProvider = loadedProviders.find((item) => item.id === provider.id);
+    return {
+      ...provider,
+      ...loadedProvider,
+      enabled: loadedProvider?.enabled ?? Boolean(loadedProvider?.apiKey?.trim())
+    };
+  });
 
-  const customProviders = loadedProviders.filter((provider) => !defaults.some((item) => item.id === provider.id));
+  const customProviders = loadedProviders
+    .filter((provider) => !defaults.some((item) => item.id === provider.id))
+    .map((provider) => ({
+      ...provider,
+      enabled: provider.enabled ?? Boolean(provider.apiKey?.trim())
+    }));
   return [...merged, ...customProviders];
 }

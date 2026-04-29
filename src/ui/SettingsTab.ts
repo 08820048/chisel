@@ -2,6 +2,7 @@ import { App, Notice, PluginSettingTab, Setting, setIcon } from "obsidian";
 import type ChiselPlugin from "../main";
 import type { CustomActionConfig, OutputMode, ProviderConfig, TriggerMode } from "../types";
 import { LANGUAGE_OPTIONS, LOCALE_OPTIONS, type Locale, languageLabel, normalizeLanguage, t } from "../i18n";
+import { getProviderLogo } from "./providerLogos";
 
 const OUTPUT_OPTIONS: Record<Locale, Record<OutputMode, string>> = {
   zh: {
@@ -33,7 +34,6 @@ const TRIGGER_OPTIONS: Record<Locale, Record<TriggerMode, string>> = {
 
 export class ChiselSettingTab extends PluginSettingTab {
   private importExportValue = "";
-  private providerFilter = "";
   private selectedProviderId = "";
 
   constructor(app: App, private readonly plugin: ChiselPlugin) {
@@ -135,19 +135,7 @@ export class ChiselSettingTab extends PluginSettingTab {
 
     const manager = containerEl.createDiv({ cls: "chisel-provider-manager" });
     const toolbar = manager.createDiv({ cls: "chisel-provider-toolbar" });
-    const searchWrap = toolbar.createDiv({ cls: "chisel-provider-search" });
-    setIcon(searchWrap.createSpan({ cls: "chisel-provider-search-icon" }), "search");
-    const searchInput = searchWrap.createEl("input", {
-      attr: {
-        placeholder: this.locale === "zh" ? "搜索提供商..." : "Search providers...",
-        type: "search"
-      },
-      value: this.providerFilter
-    });
-    searchInput.addEventListener("input", () => {
-      this.providerFilter = searchInput.value;
-      this.display();
-    });
+    toolbar.createDiv({ cls: "chisel-provider-toolbar-spacer" });
 
     const addButton = toolbar.createEl("button", { cls: "mod-cta chisel-provider-add-button" });
     setIcon(addButton, "plus");
@@ -162,21 +150,8 @@ export class ChiselSettingTab extends PluginSettingTab {
 
     const body = manager.createDiv({ cls: "chisel-provider-body" });
     const list = body.createDiv({ cls: "chisel-provider-list" });
-    const normalizedFilter = this.providerFilter.trim().toLowerCase();
-    const visibleProviders = providers.filter((provider) => {
-      if (!normalizedFilter) return true;
-      return `${provider.name} ${provider.model} ${provider.baseURL}`.toLowerCase().includes(normalizedFilter);
-    });
-
-    for (const provider of visibleProviders) {
+    for (const provider of providers) {
       list.append(this.createProviderListItem(provider));
-    }
-
-    if (visibleProviders.length === 0) {
-      list.createDiv({
-        cls: "chisel-provider-empty",
-        text: this.locale === "zh" ? "没有匹配的提供商" : "No providers found"
-      });
     }
 
     const panel = body.createDiv({ cls: "chisel-provider-panel" });
@@ -191,7 +166,7 @@ export class ChiselSettingTab extends PluginSettingTab {
     item.className = `chisel-provider-list-item${isSelected ? " is-selected" : ""}`;
 
     const icon = item.createSpan({ cls: "chisel-provider-list-icon" });
-    setIcon(icon, this.providerIcon(provider));
+    this.renderProviderLogo(icon, provider);
 
     const text = item.createSpan({ cls: "chisel-provider-list-name", text: provider.name });
 
@@ -199,7 +174,7 @@ export class ChiselSettingTab extends PluginSettingTab {
       text.createSpan({ cls: "chisel-provider-custom-badge", text: "CUSTOM" });
     }
 
-    item.createSpan({ cls: `chisel-provider-status-dot${provider.apiKey || provider.type === "custom" ? " is-active" : ""}` });
+    item.createSpan({ cls: `chisel-provider-status-dot${provider.enabled ? " is-active" : ""}` });
     if (isDefault) {
       item.setAttr("aria-label", `${provider.name} (${t(this.locale, "general.defaultProvider")})`);
     }
@@ -214,6 +189,8 @@ export class ChiselSettingTab extends PluginSettingTab {
 
   private renderProviderPanel(container: HTMLElement, provider: ProviderConfig): void {
     const header = container.createDiv({ cls: "chisel-provider-panel-header" });
+    const headerLogo = header.createDiv({ cls: "chisel-provider-panel-logo" });
+    this.renderProviderLogo(headerLogo, provider);
     const titleWrap = header.createDiv({ cls: "chisel-provider-title-wrap" });
     titleWrap.createEl("h4", { text: provider.name });
     titleWrap.createDiv({ cls: "chisel-provider-subtitle", text: this.providerDescription(provider) });
@@ -225,24 +202,35 @@ export class ChiselSettingTab extends PluginSettingTab {
     setIcon(testButton, "zap");
     testButton.addEventListener("click", () => void this.testProvider(provider));
 
-    const defaultLabel = headerActions.createEl("label", { cls: "chisel-provider-default-toggle" });
-    const defaultInput = defaultLabel.createEl("input", { attr: { type: "checkbox" } });
-    defaultInput.checked = provider.id === this.plugin.settings.defaultProviderId;
-    defaultInput.addEventListener("change", async () => {
-      this.plugin.settings.defaultProviderId = provider.id;
+    const enabledLabel = headerActions.createEl("label", { cls: "chisel-provider-default-toggle" });
+    enabledLabel.setAttr("title", this.locale === "zh" ? "启用 Provider" : "Enable provider");
+    const enabledInput = enabledLabel.createEl("input", { attr: { type: "checkbox" } });
+    enabledInput.checked = Boolean(provider.enabled);
+    enabledInput.addEventListener("change", async () => {
+      if (enabledInput.checked && !this.plugin.providerManager.hasProviderCredential(provider)) {
+        new Notice(this.locale === "zh" ? "请先配置 API Key 后再启用该模型提供商" : "Configure the API key before enabling this provider");
+        enabledInput.checked = false;
+        return;
+      }
+
+      provider.enabled = enabledInput.checked;
       await this.plugin.saveSettings();
       this.display();
     });
-    defaultLabel.createSpan({ cls: "chisel-provider-switch" });
+    enabledLabel.createSpan({ cls: "chisel-provider-switch" });
 
-    this.createProviderField(container, {
-      label: t(this.locale, "provider.name"),
-      value: provider.name,
-      onChange: async (value) => {
-        provider.name = value || provider.name;
-        await this.plugin.saveSettings();
-      }
-    });
+    if (provider.type === "custom") {
+      this.createProviderField(container, {
+        label: t(this.locale, "provider.name"),
+        value: provider.name,
+        onChange: async (value) => {
+          provider.name = value || provider.name;
+          await this.plugin.saveSettings();
+        }
+      });
+    } else {
+      this.createReadonlyProviderField(container, t(this.locale, "provider.name"), provider.name);
+    }
 
     const previousApiKey = provider.apiKey;
     this.createProviderField(container, {
@@ -254,6 +242,9 @@ export class ChiselSettingTab extends PluginSettingTab {
       rightIcon: "eye",
       onChange: async (value) => {
         provider.apiKey = value;
+        if (!value.trim()) {
+          provider.enabled = false;
+        }
         provider.models = [];
         provider.modelsFetchedAt = undefined;
         await this.plugin.saveSettings();
@@ -265,17 +256,26 @@ export class ChiselSettingTab extends PluginSettingTab {
       }
     });
 
-    this.createProviderField(container, {
-      label: t(this.locale, "provider.baseUrl"),
-      value: provider.baseURL,
-      helper: provider.type === "custom" ? t(this.locale, "provider.addDesc") : this.locale === "zh" ? "保留默认值即可使用官方 API 端点" : "Keep the default value to use the official API endpoint",
-      onChange: async (value) => {
-        provider.baseURL = value.trim();
-        provider.models = [];
-        provider.modelsFetchedAt = undefined;
-        await this.plugin.saveSettings();
-      }
-    });
+    if (provider.type === "custom") {
+      this.createProviderField(container, {
+        label: t(this.locale, "provider.baseUrl"),
+        value: provider.baseURL,
+        helper: t(this.locale, "provider.addDesc"),
+        onChange: async (value) => {
+          provider.baseURL = value.trim();
+          provider.models = [];
+          provider.modelsFetchedAt = undefined;
+          await this.plugin.saveSettings();
+        }
+      });
+    } else {
+      this.createReadonlyProviderField(
+        container,
+        t(this.locale, "provider.baseUrl"),
+        provider.baseURL,
+        this.locale === "zh" ? "内置提供商的 API 端点由插件维护" : "Built-in provider API endpoints are managed by the plugin"
+      );
+    }
 
     const modelSection = container.createDiv({ cls: "chisel-provider-field" });
     modelSection.createEl("label", { text: t(this.locale, "model.current") });
@@ -374,6 +374,16 @@ export class ChiselSettingTab extends PluginSettingTab {
     }
   }
 
+  private createReadonlyProviderField(container: HTMLElement, label: string, value: string, helper?: string): void {
+    const field = container.createDiv({ cls: "chisel-provider-field" });
+    field.createEl("label", { text: label });
+    field.createDiv({ cls: "chisel-provider-readonly-value", text: value });
+
+    if (helper) {
+      field.createDiv({ cls: "chisel-provider-helper", text: helper });
+    }
+  }
+
   private createCustomProvider(): ProviderConfig {
     return {
       id: `custom-${Date.now()}`,
@@ -381,7 +391,8 @@ export class ChiselSettingTab extends PluginSettingTab {
       type: "custom",
       baseURL: "http://localhost:11434/v1",
       apiKey: "",
-      model: "llama3.2"
+      model: "llama3.2",
+      enabled: false
     };
   }
 
@@ -409,6 +420,31 @@ export class ChiselSettingTab extends PluginSettingTab {
     };
 
     return icons[provider.id] ?? (provider.type === "custom" ? "blocks" : "cpu");
+  }
+
+  private renderProviderLogo(container: HTMLElement, provider: ProviderConfig): void {
+    const logo = getProviderLogo(this.providerLogoId(provider));
+    if (logo) {
+      container.innerHTML = logo;
+      return;
+    }
+
+    setIcon(container, this.providerIcon(provider));
+  }
+
+  private providerLogoId(provider: ProviderConfig): string {
+    if (provider.id === "anthropic") {
+      return "claude";
+    }
+
+    const candidate = `${provider.id} ${provider.name} ${provider.baseURL}`.toLowerCase();
+    if (candidate.includes("ollama")) return "ollama";
+    if (candidate.includes("deepseek")) return "deepseek";
+    if (candidate.includes("gemini") || candidate.includes("google")) return "gemini";
+    if (candidate.includes("anthropic") || candidate.includes("claude")) return "claude";
+    if (candidate.includes("openai")) return "openai";
+
+    return provider.id;
   }
 
   private renderMenuConfig(containerEl: HTMLElement): void {
