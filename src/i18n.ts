@@ -8,6 +8,7 @@ type TranslationKey =
   | "action.proofread"
   | "action.questions"
   | "action.summarize"
+  | "action.table"
   | "action.tags"
   | "action.translate"
   | "common.defaultProvider"
@@ -66,6 +67,7 @@ const DICTIONARY: Record<Locale, Record<TranslationKey, string>> = {
     "action.proofread": "纠错",
     "action.questions": "提问",
     "action.summarize": "缩写",
+    "action.table": "转表格",
     "action.tags": "标签",
     "action.translate": "翻译",
     "common.defaultProvider": "默认提供商",
@@ -123,6 +125,7 @@ const DICTIONARY: Record<Locale, Record<TranslationKey, string>> = {
     "action.proofread": "Proofread",
     "action.questions": "Questions",
     "action.summarize": "Summarize",
+    "action.table": "Table",
     "action.tags": "Tags",
     "action.translate": "Translate",
     "common.defaultProvider": "Default provider",

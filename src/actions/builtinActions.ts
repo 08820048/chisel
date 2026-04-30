@@ -106,6 +106,24 @@ ${OUTPUT_ONLY}
     builtin: true
   },
   {
+    id: "table",
+    name: "转表格",
+    icon: "table",
+    prompt: `分析以下内容，提取其中适合结构化展示的信息，并转换为 Markdown 表格。
+- 根据内容自动判断表头和列数。
+- 合并同类信息，保留关键事实、数值、名称、时间、状态、描述等可表格化信息。
+- 如果原文已经包含列表、段落、键值对、CSV、TSV 或半结构化文本，请整理为规范 Markdown 表格。
+- 只返回一个或多个 Markdown 表格，不要使用代码块包裹，不要添加额外说明。
+
+${OUTPUT_ONLY}
+
+{{selection}}`,
+    output: "popup",
+    visible: true,
+    order: 85,
+    builtin: true
+  },
+  {
     id: "tags",
     name: "标签",
     icon: "tags",

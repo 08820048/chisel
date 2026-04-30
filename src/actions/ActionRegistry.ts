@@ -10,6 +10,7 @@ const BUILTIN_NAME_KEYS: Record<string, Parameters<typeof t>[1]> = {
   proofread: "action.proofread",
   questions: "action.questions",
   summarize: "action.summarize",
+  table: "action.table",
   tags: "action.tags",
   translate: "action.translate"
 };
