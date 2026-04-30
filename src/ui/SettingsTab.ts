@@ -49,7 +49,6 @@ export class ChiselSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("chisel-settings");
 
-    new Setting(containerEl).setName("Chisel").setHeading();
     this.renderGeneral(containerEl);
     this.renderProviders(containerEl);
     this.renderMenuConfig(containerEl);
@@ -80,7 +79,9 @@ export class ChiselSettingTab extends PluginSettingTab {
       .setName(t(this.locale, "general.triggerMode"))
       .setDesc(t(this.locale, "general.triggerModeDesc"))
       .addDropdown((dropdown) => {
-        Object.entries(TRIGGER_OPTIONS[this.locale]).forEach(([value, label]) => dropdown.addOption(value, label));
+        Object.entries(TRIGGER_OPTIONS[this.locale]).forEach(([value, label]) => {
+          dropdown.addOption(value, label);
+        });
         dropdown.setValue(this.plugin.settings.triggerMode);
         dropdown.onChange((value) => {
           this.runAsync(async () => {
@@ -93,7 +94,9 @@ export class ChiselSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName(t(this.locale, "general.defaultProvider"))
       .addDropdown((dropdown) => {
-        this.plugin.settings.providers.forEach((provider) => dropdown.addOption(provider.id, provider.name));
+        this.plugin.settings.providers.forEach((provider) => {
+          dropdown.addOption(provider.id, provider.name);
+        });
         dropdown.setValue(this.plugin.settings.defaultProviderId);
         dropdown.onChange((value) => {
           this.runAsync(async () => {
@@ -206,7 +209,7 @@ export class ChiselSettingTab extends PluginSettingTab {
     const headerLogo = header.createDiv({ cls: "chisel-provider-panel-logo" });
     this.renderProviderLogo(headerLogo, provider);
     const titleWrap = header.createDiv({ cls: "chisel-provider-title-wrap" });
-    titleWrap.createEl("h4", { text: provider.name });
+    titleWrap.createDiv({ cls: "chisel-provider-title", text: provider.name });
     titleWrap.createDiv({ cls: "chisel-provider-subtitle", text: this.providerDescription(provider) });
 
     const headerActions = header.createDiv({ cls: "chisel-provider-header-actions" });
@@ -530,7 +533,9 @@ export class ChiselSettingTab extends PluginSettingTab {
         })
         .addDropdown((dropdown) => {
           dropdown.addOption("", t(this.locale, "common.defaultProvider"));
-          this.plugin.settings.providers.forEach((provider) => dropdown.addOption(provider.id, provider.name));
+          this.plugin.settings.providers.forEach((provider) => {
+            dropdown.addOption(provider.id, provider.name);
+          });
           dropdown.setValue(action.providerId ?? "");
           dropdown.onChange((value) => {
             this.runAsync(async () => {
@@ -712,7 +717,9 @@ export class ChiselSettingTab extends PluginSettingTab {
   }
 
   private addOutputOptions(dropdown: { addOption(value: string, display: string): unknown }): void {
-    Object.entries(OUTPUT_OPTIONS[this.locale]).forEach(([value, label]) => dropdown.addOption(value, label));
+    Object.entries(OUTPUT_OPTIONS[this.locale]).forEach(([value, label]) => {
+      dropdown.addOption(value, label);
+    });
   }
 
   private runAsync(task: () => Promise<void>): void {

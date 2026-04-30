@@ -331,10 +331,11 @@
   min-width: 0;
 }
 
-.chisel-provider-title-wrap h4 {
+.chisel-provider-title {
   margin: 0 0 6px;
   color: var(--text-normal);
   font-size: 18px;
+  font-weight: var(--font-semibold);
 }
 
 .chisel-provider-subtitle {
