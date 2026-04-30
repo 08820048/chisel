@@ -16,18 +16,16 @@ export class SelectionMenu {
     private readonly getMoreLabel: () => string = () => "More actions"
   ) {
     this.rootEl = document.createElement("div");
-    this.rootEl.className = "chisel-menu";
-    this.rootEl.style.display = "none";
+    this.rootEl.className = "chisel-menu is-hidden";
 
     this.moreEl = document.createElement("div");
-    this.moreEl.className = "chisel-more-menu";
-    this.moreEl.style.display = "none";
+    this.moreEl.className = "chisel-more-menu is-hidden";
 
     document.body.append(this.rootEl, this.moreEl);
   }
 
   show(rect: DOMRect, actions: ChiselAction[]): void {
-    if (this.rootEl.style.display !== "none" && this.moreEl.style.display !== "none") {
+    if (!this.rootEl.hasClass("is-hidden") && !this.moreEl.hasClass("is-hidden")) {
       return;
     }
 
@@ -54,15 +52,15 @@ export class SelectionMenu {
       this.rootEl.append(moreButton);
     }
 
-    this.moreEl.style.display = "none";
-    this.rootEl.style.display = "flex";
+    this.moreEl.addClass("is-hidden");
+    this.rootEl.removeClass("is-hidden");
     this.position(rect);
     document.addEventListener("mousedown", this.outsideHandler, true);
   }
 
   hide(): void {
-    this.rootEl.style.display = "none";
-    this.moreEl.style.display = "none";
+    this.rootEl.addClass("is-hidden");
+    this.moreEl.addClass("is-hidden");
     document.removeEventListener("mousedown", this.outsideHandler, true);
   }
 
@@ -97,8 +95,8 @@ export class SelectionMenu {
   }
 
   private toggleMore(actions: ChiselAction[]): void {
-    if (this.moreEl.style.display !== "none") {
-      this.moreEl.style.display = "none";
+    if (!this.moreEl.hasClass("is-hidden")) {
+      this.moreEl.addClass("is-hidden");
       return;
     }
 
@@ -108,12 +106,14 @@ export class SelectionMenu {
     }
 
     const menuRect = this.rootEl.getBoundingClientRect();
-    this.moreEl.style.display = "flex";
+    this.moreEl.removeClass("is-hidden");
     const moreRect = this.moreEl.getBoundingClientRect();
     const left = Math.min(menuRect.right - moreRect.width, window.innerWidth - moreRect.width - 8);
     const top = Math.min(menuRect.bottom + 6, window.innerHeight - moreRect.height - 8);
-    this.moreEl.style.left = `${Math.max(8, left)}px`;
-    this.moreEl.style.top = `${Math.max(8, top)}px`;
+    this.moreEl.setCssProps({
+      "--chisel-menu-left": `${Math.max(8, left)}px`,
+      "--chisel-menu-top": `${Math.max(8, top)}px`
+    });
   }
 
   private position(rect: DOMRect): void {
@@ -129,7 +129,9 @@ export class SelectionMenu {
       top = rect.top - menuRect.height - 8;
     }
 
-    this.rootEl.style.left = `${Math.max(8, left)}px`;
-    this.rootEl.style.top = `${Math.max(8, top)}px`;
+    this.rootEl.setCssProps({
+      "--chisel-menu-left": `${Math.max(8, left)}px`,
+      "--chisel-menu-top": `${Math.max(8, top)}px`
+    });
   }
 }

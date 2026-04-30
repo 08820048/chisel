@@ -108,12 +108,6 @@ export default class ChiselPlugin extends Plugin {
     this.addCommand({
       id: "show-selection-menu",
       name: this.settings.locale === "zh" ? "显示 Chisel 划词菜单" : "Show Chisel selection menu",
-      hotkeys: [
-        {
-          modifiers: ["Mod", "Shift"],
-          key: "A"
-        }
-      ],
       checkCallback: (checking) => {
         const snapshot = this.selectionHandler.readSelection();
         if (!snapshot || !snapshot.context.selection.trim()) return false;

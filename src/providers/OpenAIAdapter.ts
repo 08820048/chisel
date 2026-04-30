@@ -1,4 +1,4 @@
-import { parseSSE } from "../core/StreamParser";
+import { requestUrl } from "obsidian";
 import type { ChatMessage, ProviderConfig, ProviderRequestOptions } from "../types";
 import type { IProvider } from "./IProvider";
 
@@ -12,34 +12,29 @@ export class OpenAIAdapter implements IProvider {
   }
 
   async *complete(messages: ChatMessage[], options: ProviderRequestOptions): AsyncIterable<string> {
-    const response = await fetch(this.endpoint("chat/completions"), {
+    if (options.signal.aborted) return;
+
+    const response = await requestUrl({
+      url: this.endpoint("chat/completions"),
       method: "POST",
       headers: this.headers(),
+      contentType: "application/json",
       body: JSON.stringify({
         model: options.model || this.config.model,
         messages,
-        stream: options.stream,
+        stream: false,
         temperature: 0.3
       }),
-      signal: options.signal
+      throw: false
     });
 
-    if (!response.ok) {
-      throw new Error(await readError(response));
+    if (options.signal.aborted) return;
+
+    if (response.status >= 400) {
+      throw new Error(readError(response));
     }
 
-    if (!options.stream) {
-      const payload = await response.json();
-      yield payload.choices?.[0]?.message?.content ?? "";
-      return;
-    }
-
-    for await (const event of parseSSE(response.body)) {
-      if (typeof event !== "object" || event === null) continue;
-      const chunk = event as { choices?: Array<{ delta?: { content?: string } }> };
-      const text = chunk.choices?.[0]?.delta?.content;
-      if (text) yield text;
-    }
+    yield response.json.choices?.[0]?.message?.content ?? "";
   }
 
   async testConnection(signal: AbortSignal): Promise<void> {
@@ -52,17 +47,22 @@ export class OpenAIAdapter implements IProvider {
   }
 
   async listModels(signal: AbortSignal): Promise<string[]> {
-    const response = await fetch(this.endpoint("models"), {
+    if (signal.aborted) return [];
+
+    const response = await requestUrl({
+      url: this.endpoint("models"),
       method: "GET",
       headers: this.headers(),
-      signal
+      throw: false
     });
 
-    if (!response.ok) {
-      throw new Error(await readError(response));
+    if (signal.aborted) return [];
+
+    if (response.status >= 400) {
+      throw new Error(readError(response));
     }
 
-    const payload = await response.json();
+    const payload = response.json;
     const data = Array.isArray(payload.data) ? payload.data : [];
     return data
       .map((model: { id?: unknown; name?: unknown }) => model.id ?? model.name)
@@ -74,7 +74,7 @@ export class OpenAIAdapter implements IProvider {
     return `${this.config.baseURL.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
   }
 
-  private headers(): HeadersInit {
+  private headers(): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json"
     };
@@ -87,7 +87,6 @@ export class OpenAIAdapter implements IProvider {
   }
 }
 
-async function readError(response: Response): Promise<string> {
-  const text = await response.text();
-  return text || `${response.status} ${response.statusText}`;
+function readError(response: { status: number; text: string }): string {
+  return response.text || `HTTP ${response.status}`;
 }

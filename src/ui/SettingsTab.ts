@@ -49,7 +49,7 @@ export class ChiselSettingTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("chisel-settings");
 
-    containerEl.createEl("h2", { text: "Chisel" });
+    new Setting(containerEl).setName("Chisel").setHeading();
     this.renderGeneral(containerEl);
     this.renderProviders(containerEl);
     this.renderMenuConfig(containerEl);
@@ -58,7 +58,7 @@ export class ChiselSettingTab extends PluginSettingTab {
   }
 
   private renderGeneral(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: t(this.locale, "general.title") });
+    this.addHeading(containerEl, t(this.locale, "general.title"));
 
     new Setting(containerEl)
       .setName(t(this.locale, "general.language"))
@@ -67,10 +67,12 @@ export class ChiselSettingTab extends PluginSettingTab {
           dropdown.addOption(locale.value, locale.label);
         }
         dropdown.setValue(this.plugin.settings.locale);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.locale = value as Locale;
-          await this.plugin.saveSettings();
-          this.display();
+        dropdown.onChange((value) => {
+          this.runAsync(async () => {
+            this.plugin.settings.locale = this.normalizeLocale(value);
+            await this.plugin.saveSettings();
+            this.display();
+          });
         });
       });
 
@@ -80,9 +82,11 @@ export class ChiselSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         Object.entries(TRIGGER_OPTIONS[this.locale]).forEach(([value, label]) => dropdown.addOption(value, label));
         dropdown.setValue(this.plugin.settings.triggerMode);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.triggerMode = value as TriggerMode;
-          await this.plugin.saveSettings();
+        dropdown.onChange((value) => {
+          this.runAsync(async () => {
+            this.plugin.settings.triggerMode = this.normalizeTriggerMode(value);
+            await this.plugin.saveSettings();
+          });
         });
       });
 
@@ -91,9 +95,11 @@ export class ChiselSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         this.plugin.settings.providers.forEach((provider) => dropdown.addOption(provider.id, provider.name));
         dropdown.setValue(this.plugin.settings.defaultProviderId);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.defaultProviderId = value;
-          await this.plugin.saveSettings();
+        dropdown.onChange((value) => {
+          this.runAsync(async () => {
+            this.plugin.settings.defaultProviderId = value;
+            await this.plugin.saveSettings();
+          });
         });
       });
 
@@ -102,9 +108,11 @@ export class ChiselSettingTab extends PluginSettingTab {
       .addDropdown((dropdown) => {
         this.addOutputOptions(dropdown);
         dropdown.setValue(this.plugin.settings.defaultOutput);
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.defaultOutput = value as OutputMode;
-          await this.plugin.saveSettings();
+        dropdown.onChange((value) => {
+          this.runAsync(async () => {
+            this.plugin.settings.defaultOutput = this.normalizeOutputMode(value);
+            await this.plugin.saveSettings();
+          });
         });
       });
 
@@ -114,16 +122,18 @@ export class ChiselSettingTab extends PluginSettingTab {
       .addText((text) => {
         text.inputEl.type = "number";
         text.setValue(String(Math.round(this.plugin.settings.requestTimeoutMs / 1000)));
-        text.onChange(async (value) => {
-          const seconds = Math.max(5, Number(value) || 30);
-          this.plugin.settings.requestTimeoutMs = seconds * 1000;
-          await this.plugin.saveSettings();
+        text.onChange((value) => {
+          this.runAsync(async () => {
+            const seconds = Math.max(5, Number(value) || 30);
+            this.plugin.settings.requestTimeoutMs = seconds * 1000;
+            await this.plugin.saveSettings();
+          });
         });
       });
   }
 
   private renderProviders(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: t(this.locale, "provider.title") });
+    this.addHeading(containerEl, t(this.locale, "provider.title"));
 
     const providers = this.plugin.settings.providers;
     if (!providers.some((provider) => provider.id === this.selectedProviderId)) {
@@ -140,12 +150,14 @@ export class ChiselSettingTab extends PluginSettingTab {
     const addButton = toolbar.createEl("button", { cls: "mod-cta chisel-provider-add-button" });
     setIcon(addButton, "plus");
     addButton.createSpan({ text: this.locale === "zh" ? "添加自定义提供商" : "Add Custom Provider" });
-    addButton.addEventListener("click", async () => {
-      const provider = this.createCustomProvider();
-      this.plugin.settings.providers.push(provider);
-      this.selectedProviderId = provider.id;
-      await this.plugin.saveSettings();
-      this.display();
+    addButton.addEventListener("click", () => {
+      this.runAsync(async () => {
+        const provider = this.createCustomProvider();
+        this.plugin.settings.providers.push(provider);
+        this.selectedProviderId = provider.id;
+        await this.plugin.saveSettings();
+        this.display();
+      });
     });
 
     const body = manager.createDiv({ cls: "chisel-provider-body" });
@@ -206,16 +218,18 @@ export class ChiselSettingTab extends PluginSettingTab {
     enabledLabel.setAttr("title", this.locale === "zh" ? "启用 Provider" : "Enable provider");
     const enabledInput = enabledLabel.createEl("input", { attr: { type: "checkbox" } });
     enabledInput.checked = Boolean(provider.enabled);
-    enabledInput.addEventListener("change", async () => {
-      if (enabledInput.checked && !this.plugin.providerManager.hasProviderCredential(provider)) {
-        new Notice(this.locale === "zh" ? "请先配置 API Key 后再启用该模型提供商" : "Configure the API key before enabling this provider");
-        enabledInput.checked = false;
-        return;
-      }
+    enabledInput.addEventListener("change", () => {
+      this.runAsync(async () => {
+        if (enabledInput.checked && !this.plugin.providerManager.hasProviderCredential(provider)) {
+          new Notice(this.locale === "zh" ? "请先配置 API Key 后再启用该模型提供商" : "Configure the API key before enabling this provider");
+          enabledInput.checked = false;
+          return;
+        }
 
-      provider.enabled = enabledInput.checked;
-      await this.plugin.saveSettings();
-      this.display();
+        provider.enabled = enabledInput.checked;
+        await this.plugin.saveSettings();
+        this.display();
+      });
     });
     enabledLabel.createSpan({ cls: "chisel-provider-switch" });
 
@@ -223,9 +237,9 @@ export class ChiselSettingTab extends PluginSettingTab {
       this.createProviderField(container, {
         label: t(this.locale, "provider.name"),
         value: provider.name,
-        onChange: async (value) => {
+        onChange: (value) => {
           provider.name = value || provider.name;
-          await this.plugin.saveSettings();
+          this.runAsync(() => this.plugin.saveSettings());
         }
       });
     } else {
@@ -240,14 +254,14 @@ export class ChiselSettingTab extends PluginSettingTab {
       value: provider.apiKey,
       helper: this.locale === "zh" ? "API Key 仅保存在本地插件数据中" : "API keys are stored locally in plugin data",
       rightIcon: "eye",
-      onChange: async (value) => {
+      onChange: (value) => {
         provider.apiKey = value;
         if (!value.trim()) {
           provider.enabled = false;
         }
         provider.models = [];
         provider.modelsFetchedAt = undefined;
-        await this.plugin.saveSettings();
+        this.runAsync(() => this.plugin.saveSettings());
       },
       onBlur: () => {
         if (provider.apiKey && provider.apiKey !== previousApiKey) {
@@ -261,11 +275,11 @@ export class ChiselSettingTab extends PluginSettingTab {
         label: t(this.locale, "provider.baseUrl"),
         value: provider.baseURL,
         helper: t(this.locale, "provider.addDesc"),
-        onChange: async (value) => {
+        onChange: (value) => {
           provider.baseURL = value.trim();
           provider.models = [];
           provider.modelsFetchedAt = undefined;
-          await this.plugin.saveSettings();
+          this.runAsync(() => this.plugin.saveSettings());
         }
       });
     } else {
@@ -290,18 +304,22 @@ export class ChiselSettingTab extends PluginSettingTab {
         select.createEl("option", { value: provider.model, text: `${provider.model} (${t(this.locale, "common.manual")})` });
       }
       select.value = provider.model;
-      select.addEventListener("change", async () => {
-        provider.model = select.value;
-        await this.plugin.saveSettings();
+      select.addEventListener("change", () => {
+        this.runAsync(async () => {
+          provider.model = select.value;
+          await this.plugin.saveSettings();
+        });
       });
     } else {
       const input = modelRow.createEl("input", {
         attr: { type: "text", placeholder: t(this.locale, "common.notFetched") },
         value: provider.model
       });
-      input.addEventListener("change", async () => {
-        provider.model = input.value.trim();
-        await this.plugin.saveSettings();
+      input.addEventListener("change", () => {
+        this.runAsync(async () => {
+          provider.model = input.value.trim();
+          await this.plugin.saveSettings();
+        });
       });
     }
 
@@ -315,14 +333,16 @@ export class ChiselSettingTab extends PluginSettingTab {
       const deleteButton = footer.createEl("button");
       setIcon(deleteButton, "trash-2");
       deleteButton.createSpan({ text: t(this.locale, "provider.delete") });
-      deleteButton.addEventListener("click", async () => {
-        this.plugin.settings.providers = this.plugin.settings.providers.filter((item) => item.id !== provider.id);
-        if (this.plugin.settings.defaultProviderId === provider.id) {
-          this.plugin.settings.defaultProviderId = this.plugin.settings.providers[0]?.id ?? "openai";
-        }
-        this.selectedProviderId = this.plugin.settings.defaultProviderId;
-        await this.plugin.saveSettings();
-        this.display();
+      deleteButton.addEventListener("click", () => {
+        this.runAsync(async () => {
+          this.plugin.settings.providers = this.plugin.settings.providers.filter((item) => item.id !== provider.id);
+          if (this.plugin.settings.defaultProviderId === provider.id) {
+            this.plugin.settings.defaultProviderId = this.plugin.settings.providers[0]?.id ?? "openai";
+          }
+          this.selectedProviderId = this.plugin.settings.defaultProviderId;
+          await this.plugin.saveSettings();
+          this.display();
+        });
       });
     }
   }
@@ -333,7 +353,7 @@ export class ChiselSettingTab extends PluginSettingTab {
       helper?: string;
       label: string;
       onBlur?: () => void;
-      onChange: (value: string) => Promise<void>;
+      onChange: (value: string) => void;
       placeholder?: string;
       rightIcon?: string;
       type?: string;
@@ -351,7 +371,7 @@ export class ChiselSettingTab extends PluginSettingTab {
       value: options.value
     });
 
-    input.addEventListener("change", () => void options.onChange(input.value));
+    input.addEventListener("change", () => options.onChange(input.value));
     input.addEventListener("blur", () => options.onBlur?.());
 
     if (options.rightIcon) {
@@ -425,8 +445,12 @@ export class ChiselSettingTab extends PluginSettingTab {
   private renderProviderLogo(container: HTMLElement, provider: ProviderConfig): void {
     const logo = getProviderLogo(this.providerLogoId(provider));
     if (logo) {
-      container.innerHTML = logo;
-      return;
+      const svg = new DOMParser().parseFromString(logo, "image/svg+xml").documentElement;
+      if (svg instanceof SVGElement) {
+        container.empty();
+        container.append(document.importNode(svg, true));
+        return;
+      }
     }
 
     setIcon(container, this.providerIcon(provider));
@@ -448,81 +472,88 @@ export class ChiselSettingTab extends PluginSettingTab {
   }
 
   private renderMenuConfig(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: t(this.locale, "menuConfig.title") });
+    this.addHeading(containerEl, t(this.locale, "menuConfig.title"));
 
     for (const action of this.plugin.actionRegistry.getAllActions()) {
       new Setting(containerEl)
         .setName(action.name)
         .setDesc(action.builtin ? t(this.locale, "menuConfig.builtin") : t(this.locale, "menuConfig.custom"))
         .addToggle((toggle) =>
-          toggle.setValue(action.visible).onChange(async (value) => {
-            if (action.builtin) {
-              this.plugin.settings.actionPreferences[action.id] = {
-                ...this.plugin.settings.actionPreferences[action.id],
-                visible: value,
-                order: action.order
-              };
-            } else {
-              const custom = this.plugin.settings.customActions.find((item) => item.id === action.id);
-              if (custom) custom.visible = value;
-            }
-            await this.plugin.saveSettings();
-            this.display();
+          toggle.setValue(action.visible).onChange((value) => {
+            this.runAsync(async () => {
+              if (action.builtin) {
+                this.plugin.settings.actionPreferences[action.id] = {
+                  ...this.plugin.settings.actionPreferences[action.id],
+                  visible: value,
+                  order: action.order
+                };
+              } else {
+                const custom = this.plugin.settings.customActions.find((item) => item.id === action.id);
+                if (custom) custom.visible = value;
+              }
+              await this.plugin.saveSettings();
+              this.display();
+            });
           })
         )
         .addDropdown((dropdown) => {
           this.addOutputOptions(dropdown);
           dropdown.setValue(action.output);
-          dropdown.onChange(async (value) => {
-            if (action.builtin) {
-              this.plugin.settings.actionPreferences[action.id] = {
-                ...this.plugin.settings.actionPreferences[action.id],
-                visible: action.visible,
-                order: action.order,
-                output: value as OutputMode
-              };
-            } else {
-              const custom = this.plugin.settings.customActions.find((item) => item.id === action.id);
-              if (custom) custom.output = value as OutputMode;
-            }
-            await this.plugin.saveSettings();
+          dropdown.onChange((value) => {
+            this.runAsync(async () => {
+              const output = this.normalizeOutputMode(value);
+              if (action.builtin) {
+                this.plugin.settings.actionPreferences[action.id] = {
+                  ...this.plugin.settings.actionPreferences[action.id],
+                  visible: action.visible,
+                  order: action.order,
+                  output
+                };
+              } else {
+                const custom = this.plugin.settings.customActions.find((item) => item.id === action.id);
+                if (custom) custom.output = output;
+              }
+              await this.plugin.saveSettings();
+            });
           });
         })
         .addDropdown((dropdown) => {
           dropdown.addOption("", t(this.locale, "common.defaultProvider"));
           this.plugin.settings.providers.forEach((provider) => dropdown.addOption(provider.id, provider.name));
           dropdown.setValue(action.providerId ?? "");
-          dropdown.onChange(async (value) => {
-            const providerId = value || undefined;
-            if (action.builtin) {
-              this.plugin.settings.actionPreferences[action.id] = {
-                ...this.plugin.settings.actionPreferences[action.id],
-                visible: action.visible,
-                order: action.order,
-                providerId
-              };
-            } else {
-              const custom = this.plugin.settings.customActions.find((item) => item.id === action.id);
-              if (custom) custom.providerId = providerId;
-            }
-            await this.plugin.saveSettings();
+          dropdown.onChange((value) => {
+            this.runAsync(async () => {
+              const providerId = value || undefined;
+              if (action.builtin) {
+                this.plugin.settings.actionPreferences[action.id] = {
+                  ...this.plugin.settings.actionPreferences[action.id],
+                  visible: action.visible,
+                  order: action.order,
+                  providerId
+                };
+              } else {
+                const custom = this.plugin.settings.customActions.find((item) => item.id === action.id);
+                if (custom) custom.providerId = providerId;
+              }
+              await this.plugin.saveSettings();
+            });
           });
         })
         .addExtraButton((button) =>
-          button.setIcon("arrow-up").setTooltip(this.locale === "zh" ? "上移" : "Move up").onClick(async () => {
-            await this.moveAction(action.id, -1);
+          button.setIcon("arrow-up").setTooltip(this.locale === "zh" ? "上移" : "Move up").onClick(() => {
+            this.runAsync(() => this.moveAction(action.id, -1));
           })
         )
         .addExtraButton((button) =>
-          button.setIcon("arrow-down").setTooltip(this.locale === "zh" ? "下移" : "Move down").onClick(async () => {
-            await this.moveAction(action.id, 1);
+          button.setIcon("arrow-down").setTooltip(this.locale === "zh" ? "下移" : "Move down").onClick(() => {
+            this.runAsync(() => this.moveAction(action.id, 1));
           })
         );
     }
   }
 
   private renderCustomActions(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: t(this.locale, "settings.customActions") });
+    this.addHeading(containerEl, t(this.locale, "settings.customActions"));
 
     for (const action of this.plugin.settings.customActions) {
       const details = containerEl.createEl("details", { cls: "chisel-custom-action" });
@@ -531,9 +562,11 @@ export class ChiselSettingTab extends PluginSettingTab {
       new Setting(details)
         .setName(t(this.locale, "provider.name"))
         .addText((text) =>
-          text.setValue(action.name).onChange(async (value) => {
-            action.name = value || action.name;
-            await this.plugin.saveSettings();
+          text.setValue(action.name).onChange((value) => {
+            this.runAsync(async () => {
+              action.name = value || action.name;
+              await this.plugin.saveSettings();
+            });
           })
         );
 
@@ -541,9 +574,11 @@ export class ChiselSettingTab extends PluginSettingTab {
         .setName(t(this.locale, "settings.icon"))
         .setDesc(t(this.locale, "settings.iconDesc"))
         .addText((text) =>
-          text.setValue(action.icon).onChange(async (value) => {
-            action.icon = value || "sparkles";
-            await this.plugin.saveSettings();
+          text.setValue(action.icon).onChange((value) => {
+            this.runAsync(async () => {
+              action.icon = value || "sparkles";
+              await this.plugin.saveSettings();
+            });
           })
         );
 
@@ -552,9 +587,11 @@ export class ChiselSettingTab extends PluginSettingTab {
         .addDropdown((dropdown) => {
           this.addOutputOptions(dropdown);
           dropdown.setValue(action.output);
-          dropdown.onChange(async (value) => {
-            action.output = value as OutputMode;
-            await this.plugin.saveSettings();
+          dropdown.onChange((value) => {
+            this.runAsync(async () => {
+              action.output = this.normalizeOutputMode(value);
+              await this.plugin.saveSettings();
+            });
           });
         });
 
@@ -565,17 +602,21 @@ export class ChiselSettingTab extends PluginSettingTab {
           text.inputEl.rows = 8;
           text.inputEl.addClass("chisel-prompt-textarea");
           text.setValue(action.prompt);
-          text.onChange(async (value) => {
-            action.prompt = value;
-            await this.plugin.saveSettings();
+          text.onChange((value) => {
+            this.runAsync(async () => {
+              action.prompt = value;
+              await this.plugin.saveSettings();
+            });
           });
         });
 
       new Setting(details).addButton((button) =>
-        button.setButtonText(t(this.locale, "settings.removeAction")).onClick(async () => {
-          this.plugin.settings.customActions = this.plugin.settings.customActions.filter((item) => item.id !== action.id);
-          await this.plugin.saveSettings();
-          this.display();
+        button.setButtonText(t(this.locale, "settings.removeAction")).onClick(() => {
+          this.runAsync(async () => {
+            this.plugin.settings.customActions = this.plugin.settings.customActions.filter((item) => item.id !== action.id);
+            await this.plugin.saveSettings();
+            this.display();
+          });
         })
       );
     }
@@ -583,10 +624,12 @@ export class ChiselSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName(t(this.locale, "settings.newCustomAction"))
       .addButton((button) =>
-        button.setButtonText(t(this.locale, "settings.newAction")).setCta().onClick(async () => {
-          this.plugin.settings.customActions.push(this.createCustomAction());
-          await this.plugin.saveSettings();
-          this.display();
+        button.setButtonText(t(this.locale, "settings.newAction")).setCta().onClick(() => {
+          this.runAsync(async () => {
+            this.plugin.settings.customActions.push(this.createCustomAction());
+            await this.plugin.saveSettings();
+            this.display();
+          });
         })
       );
 
@@ -594,16 +637,18 @@ export class ChiselSettingTab extends PluginSettingTab {
       .setName(t(this.locale, "importExport.title"))
       .setDesc(t(this.locale, "importExport.desc"))
       .addButton((button) =>
-        button.setButtonText(t(this.locale, "importExport.export")).onClick(async () => {
-          this.importExportValue = JSON.stringify(this.plugin.settings.customActions, null, 2);
-          await navigator.clipboard.writeText(this.importExportValue);
-          new Notice(this.locale === "zh" ? "已导出并复制到剪贴板" : "Exported and copied to clipboard");
-          this.display();
+        button.setButtonText(t(this.locale, "importExport.export")).onClick(() => {
+          this.runAsync(async () => {
+            this.importExportValue = JSON.stringify(this.plugin.settings.customActions, null, 2);
+            await navigator.clipboard.writeText(this.importExportValue);
+            new Notice(this.locale === "zh" ? "已导出并复制到剪贴板" : "Exported and copied to clipboard");
+            this.display();
+          });
         })
       )
       .addButton((button) =>
-        button.setButtonText(t(this.locale, "importExport.import")).onClick(async () => {
-          await this.importCustomActions();
+        button.setButtonText(t(this.locale, "importExport.import")).onClick(() => {
+          this.runAsync(() => this.importCustomActions());
         })
       );
 
@@ -618,7 +663,7 @@ export class ChiselSettingTab extends PluginSettingTab {
   }
 
   private renderTranslation(containerEl: HTMLElement): void {
-    containerEl.createEl("h3", { text: t(this.locale, "translation.title") });
+    this.addHeading(containerEl, t(this.locale, "translation.title"));
 
     new Setting(containerEl)
       .setName(t(this.locale, "translation.source"))
@@ -627,9 +672,11 @@ export class ChiselSettingTab extends PluginSettingTab {
           dropdown.addOption(option.value, languageLabel(this.locale, option.value));
         }
         dropdown.setValue(normalizeLanguage(this.plugin.settings.translation.sourceLanguage, "auto"));
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.translation.sourceLanguage = value || "auto";
-          await this.plugin.saveSettings();
+        dropdown.onChange((value) => {
+          this.runAsync(async () => {
+            this.plugin.settings.translation.sourceLanguage = value || "auto";
+            await this.plugin.saveSettings();
+          });
         });
       });
 
@@ -640,15 +687,48 @@ export class ChiselSettingTab extends PluginSettingTab {
           dropdown.addOption(option.value, languageLabel(this.locale, option.value));
         }
         dropdown.setValue(normalizeLanguage(this.plugin.settings.translation.targetLanguage, "Chinese"));
-        dropdown.onChange(async (value) => {
-          this.plugin.settings.translation.targetLanguage = value || "Chinese";
-          await this.plugin.saveSettings();
+        dropdown.onChange((value) => {
+          this.runAsync(async () => {
+            this.plugin.settings.translation.targetLanguage = value || "Chinese";
+            await this.plugin.saveSettings();
+          });
         });
       });
   }
 
+  private addHeading(containerEl: HTMLElement, text: string): void {
+    new Setting(containerEl).setName(text).setHeading();
+  }
+
   private addOutputOptions(dropdown: { addOption(value: string, display: string): unknown }): void {
     Object.entries(OUTPUT_OPTIONS[this.locale]).forEach(([value, label]) => dropdown.addOption(value, label));
+  }
+
+  private runAsync(task: () => Promise<void>): void {
+    void task().catch((error) => {
+      new Notice(error instanceof Error ? error.message : String(error));
+    });
+  }
+
+  private normalizeLocale(value: string): Locale {
+    return value === "en" ? "en" : "zh";
+  }
+
+  private normalizeTriggerMode(value: string): TriggerMode {
+    return value === "hotkey" ? "hotkey" : "immediate";
+  }
+
+  private normalizeOutputMode(value: unknown): OutputMode {
+    switch (value) {
+      case "replace":
+      case "append":
+      case "insert_below":
+      case "diff":
+      case "popup":
+        return value;
+      default:
+        return "popup";
+    }
   }
 
   private async moveAction(actionId: string, direction: -1 | 1): Promise<void> {
@@ -695,11 +775,12 @@ export class ChiselSettingTab extends PluginSettingTab {
   private async importCustomActions(): Promise<void> {
     try {
       const parsed = JSON.parse(this.importExportValue) as unknown;
-      const actions = Array.isArray(parsed)
-        ? parsed
-        : typeof parsed === "object" && parsed !== null && Array.isArray((parsed as { customActions?: unknown }).customActions)
-          ? (parsed as { customActions: unknown[] }).customActions
-          : null;
+      let actions: unknown[] | null = null;
+      if (Array.isArray(parsed)) {
+        actions = parsed;
+      } else if (this.isObjectRecord(parsed) && Array.isArray(parsed.customActions)) {
+        actions = parsed.customActions;
+      }
 
       if (!actions) {
         throw new Error(
@@ -707,18 +788,7 @@ export class ChiselSettingTab extends PluginSettingTab {
         );
       }
 
-      this.plugin.settings.customActions = actions.map((action, index) => ({
-        id: String((action as Partial<CustomActionConfig>).id || `custom-${Date.now()}-${index}`),
-        name: String((action as Partial<CustomActionConfig>).name || (this.locale === "zh" ? "自定义动作" : "Custom action")),
-        icon: String((action as Partial<CustomActionConfig>).icon || "sparkles"),
-        prompt: String((action as Partial<CustomActionConfig>).prompt || "{{selection}}"),
-        output: ((action as Partial<CustomActionConfig>).output || "popup") as OutputMode,
-        providerId: (action as Partial<CustomActionConfig>).providerId,
-        model: (action as Partial<CustomActionConfig>).model,
-        visible: (action as Partial<CustomActionConfig>).visible ?? true,
-        order: (action as Partial<CustomActionConfig>).order ?? 1000 + index * 10,
-        hotkey: (action as Partial<CustomActionConfig>).hotkey
-      }));
+      this.plugin.settings.customActions = actions.map((action, index) => this.normalizeImportedAction(action, index));
 
       await this.plugin.saveSettings();
       new Notice(this.locale === "zh" ? "自定义动作已导入" : "Custom actions imported");
@@ -726,6 +796,34 @@ export class ChiselSettingTab extends PluginSettingTab {
     } catch (error) {
       new Notice(error instanceof Error ? error.message : String(error));
     }
+  }
+
+  private normalizeImportedAction(action: unknown, index: number): CustomActionConfig {
+    const item = this.isObjectRecord(action) ? action : {};
+    return {
+      id: this.stringValue(item.id, `custom-${Date.now()}-${index}`),
+      name: this.stringValue(item.name, this.locale === "zh" ? "自定义动作" : "Custom action"),
+      icon: this.stringValue(item.icon, "sparkles"),
+      prompt: this.stringValue(item.prompt, "{{selection}}"),
+      output: this.normalizeOutputMode(item.output),
+      providerId: this.optionalString(item.providerId),
+      model: this.optionalString(item.model),
+      visible: typeof item.visible === "boolean" ? item.visible : true,
+      order: typeof item.order === "number" ? item.order : 1000 + index * 10,
+      hotkey: this.optionalString(item.hotkey)
+    };
+  }
+
+  private isObjectRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  private stringValue(value: unknown, fallback: string): string {
+    return typeof value === "string" && value.length > 0 ? value : fallback;
+  }
+
+  private optionalString(value: unknown): string | undefined {
+    return typeof value === "string" && value.length > 0 ? value : undefined;
   }
 
   private async testProvider(provider: ProviderConfig): Promise<void> {

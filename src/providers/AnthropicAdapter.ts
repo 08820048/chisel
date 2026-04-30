@@ -1,4 +1,4 @@
-import { parseSSE } from "../core/StreamParser";
+import { requestUrl } from "obsidian";
 import type { ChatMessage, ProviderConfig, ProviderRequestOptions } from "../types";
 import type { IProvider } from "./IProvider";
 
@@ -12,6 +12,8 @@ export class AnthropicAdapter implements IProvider {
   }
 
   async *complete(messages: ChatMessage[], options: ProviderRequestOptions): AsyncIterable<string> {
+    if (options.signal.aborted) return;
+
     const system = messages
       .filter((message) => message.role === "system")
       .map((message) => message.content)
@@ -24,41 +26,31 @@ export class AnthropicAdapter implements IProvider {
         content: message.content
       }));
 
-    const response = await fetch(this.endpoint("messages"), {
+    const response = await requestUrl({
+      url: this.endpoint("messages"),
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         "x-api-key": this.config.apiKey,
         "anthropic-version": "2023-06-01"
       },
+      contentType: "application/json",
       body: JSON.stringify({
         model: options.model || this.config.model,
         max_tokens: 4096,
         system: system || undefined,
         messages: anthropicMessages,
-        stream: options.stream
+        stream: false
       }),
-      signal: options.signal
+      throw: false
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || `${response.status} ${response.statusText}`);
+    if (options.signal.aborted) return;
+
+    if (response.status >= 400) {
+      throw new Error(response.text || `HTTP ${response.status}`);
     }
 
-    if (!options.stream) {
-      const payload = await response.json();
-      yield payload.content?.map((part: { text?: string }) => part.text ?? "").join("") ?? "";
-      return;
-    }
-
-    for await (const event of parseSSE(response.body)) {
-      if (typeof event !== "object" || event === null) continue;
-      const chunk = event as { type?: string; delta?: { text?: string } };
-      if (chunk.type === "content_block_delta" && chunk.delta?.text) {
-        yield chunk.delta.text;
-      }
-    }
+    yield response.json.content?.map((part: { text?: string }) => part.text ?? "").join("") ?? "";
   }
 
   async testConnection(signal: AbortSignal): Promise<void> {
@@ -71,21 +63,25 @@ export class AnthropicAdapter implements IProvider {
   }
 
   async listModels(signal: AbortSignal): Promise<string[]> {
-    const response = await fetch(this.endpoint("models"), {
+    if (signal.aborted) return [];
+
+    const response = await requestUrl({
+      url: this.endpoint("models"),
       method: "GET",
       headers: {
         "x-api-key": this.config.apiKey,
         "anthropic-version": "2023-06-01"
       },
-      signal
+      throw: false
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(text || `${response.status} ${response.statusText}`);
+    if (signal.aborted) return [];
+
+    if (response.status >= 400) {
+      throw new Error(response.text || `HTTP ${response.status}`);
     }
 
-    const payload = await response.json();
+    const payload = response.json;
     const data = Array.isArray(payload.data) ? payload.data : [];
     return data
       .map((model: { id?: unknown; display_name?: unknown }) => model.id ?? model.display_name)

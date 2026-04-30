@@ -1,6 +1,8 @@
 .chisel-menu,
 .chisel-more-menu {
   position: fixed;
+  left: var(--chisel-menu-left, 8px);
+  top: var(--chisel-menu-top, 8px);
   z-index: var(--layer-popover);
   display: flex;
   gap: 4px;
@@ -11,6 +13,11 @@
   border-radius: 8px;
   background: var(--background-primary);
   box-shadow: var(--shadow-s);
+}
+
+.chisel-menu.is-hidden,
+.chisel-more-menu.is-hidden {
+  display: none;
 }
 
 .chisel-menu {
@@ -110,7 +117,7 @@
   overflow: hidden;
 }
 
-.chisel-result-pane h3 {
+.chisel-result-pane-title {
   margin: 0 0 8px;
   color: var(--text-muted);
   font-size: var(--font-ui-small);

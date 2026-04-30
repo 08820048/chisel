@@ -92,12 +92,12 @@ export class ResultModal extends Modal {
     const body = contentEl.createDiv({ cls: "chisel-result-body" });
     if (this.options.defaultOutput === "diff") {
       const original = body.createDiv({ cls: "chisel-result-pane" });
-      original.createEl("h3", { text: this.labels.original });
+      original.createDiv({ cls: "chisel-result-pane-title", text: this.labels.original });
       original.createEl("pre", { text: this.options.original });
     }
 
     const resultPane = body.createDiv({ cls: "chisel-result-pane chisel-result-pane-output" });
-    resultPane.createEl("h3", { text: this.labels.result });
+    resultPane.createDiv({ cls: "chisel-result-pane-title", text: this.labels.result });
     this.contentElRef = resultPane.createDiv({ cls: "chisel-result-text" });
 
     const footer = contentEl.createDiv({ cls: "chisel-result-footer" });
@@ -108,9 +108,15 @@ export class ResultModal extends Modal {
     const copyButton = footer.createEl("button", { cls: "mod-cta" });
     setIcon(copyButton, "copy");
     copyButton.createSpan({ text: this.labels.copy });
-    copyButton.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(this.result);
-      new Notice(this.labels.copied);
+    copyButton.addEventListener("click", () => {
+      void navigator.clipboard
+        .writeText(this.result)
+        .then(() => {
+          new Notice(this.labels.copied);
+        })
+        .catch((error) => {
+          new Notice(error instanceof Error ? error.message : String(error));
+        });
     });
 
     const retryButton = footer.createEl("button");
