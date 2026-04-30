@@ -1,8 +1,14 @@
 import type { ChiselAction } from "../types";
 
+const OUTPUT_ONLY = `输出要求：
+- 只返回最终处理结果。
+- 不要复述用户要求、不要解释处理过程、不要添加标题/前缀/结论。
+- 不要输出“核心信息”“简洁改写”“处理结果”等标签。
+- 除非结果本身需要 Markdown，否则不要额外包裹格式。`;
+
 const basePrompt = (instruction: string): string => `${instruction}
 
-请只返回处理后的结果，不要添加额外说明。
+${OUTPUT_ONLY}
 
 {{selection}}`;
 
@@ -11,7 +17,9 @@ export const BUILTIN_ACTIONS: ChiselAction[] = [
     id: "translate",
     name: "翻译",
     icon: "languages",
-    prompt: `检测所选文本语言，并在中文和英文之间互译。保持 Markdown 格式、列表、代码块和原有段落结构。目标语言：{{targetLanguage}}。
+    prompt: `检测所选文本语言，并翻译为目标语言。保持 Markdown 格式、列表、代码块和原有段落结构。目标语言：{{targetLanguage}}。
+
+${OUTPUT_ONLY}
 
 {{selection}}`,
     output: "popup",
@@ -55,6 +63,8 @@ export const BUILTIN_ACTIONS: ChiselAction[] = [
     icon: "circle-help",
     prompt: `解释以下内容的含义、背景、关键概念和可能的上下文。请使用清晰的 Markdown 结构。
 
+${OUTPUT_ONLY}
+
 {{selection}}`,
     output: "popup",
     visible: true,
@@ -87,6 +97,8 @@ export const BUILTIN_ACTIONS: ChiselAction[] = [
     icon: "messages-square",
     prompt: `基于以下内容，生成 3-5 个能延伸思考的高质量问题。使用 Markdown 列表。
 
+${OUTPUT_ONLY}
+
 {{selection}}`,
     output: "insert_below",
     visible: true,
@@ -98,6 +110,8 @@ export const BUILTIN_ACTIONS: ChiselAction[] = [
     name: "标签",
     icon: "tags",
     prompt: `从以下内容提取适合 Obsidian 的标签。只返回一行标签，格式如 #概念 #主题 #关键词。
+
+${OUTPUT_ONLY}
 
 {{selection}}`,
     output: "append",

@@ -2,6 +2,25 @@ import { requestUrl } from "obsidian";
 import type { ChatMessage, ProviderConfig, ProviderRequestOptions } from "../types";
 import type { IProvider } from "./IProvider";
 
+const STATIC_MODEL_LISTS: Record<string, string[]> = {
+  xiaomimimo: [
+    "mimo-v2.5-pro",
+    "mimo-v2.5",
+    "mimo-v2.5-tts",
+    "mimo-v2.5-tts-voicedesign",
+    "mimo-v2.5-tts-voiceclone",
+    "mimo-v2-pro",
+    "mimo-v2-omni",
+    "mimo-v2-tts",
+    "mimo-v2-flash"
+  ],
+  zai: [
+    "glm-5.1",
+    "glm-5.1v-thinking-flash",
+    "glm-5.1v-flash"
+  ]
+};
+
 export class OpenAIAdapter implements IProvider {
   id: string;
   name: string;
@@ -59,15 +78,18 @@ export class OpenAIAdapter implements IProvider {
     if (signal.aborted) return [];
 
     if (response.status >= 400) {
+      const staticModels = this.staticModelsForUnsupportedList(response.status);
+      if (staticModels) return staticModels;
       throw new Error(readError(response));
     }
 
     const payload = response.json;
     const data = Array.isArray(payload.data) ? payload.data : [];
-    return data
+    const models = data
       .map((model: { id?: unknown; name?: unknown }) => model.id ?? model.name)
       .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
       .sort((a: string, b: string) => a.localeCompare(b));
+    return models.length > 0 ? models : STATIC_MODEL_LISTS[this.config.id] ?? [];
   }
 
   private endpoint(path: string): string {
@@ -80,10 +102,19 @@ export class OpenAIAdapter implements IProvider {
     };
 
     if (this.config.apiKey) {
-      headers.Authorization = `Bearer ${this.config.apiKey}`;
+      if (this.config.id === "xiaomimimo") {
+        headers["api-key"] = this.config.apiKey;
+      } else {
+        headers.Authorization = `Bearer ${this.config.apiKey}`;
+      }
     }
 
     return headers;
+  }
+
+  private staticModelsForUnsupportedList(status: number): string[] | null {
+    if (status !== 404 && status !== 405 && status !== 501) return null;
+    return STATIC_MODEL_LISTS[this.config.id] ?? null;
   }
 }
 

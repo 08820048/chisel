@@ -28,6 +28,14 @@ const EXTENSION_LANGUAGE: Record<string, string> = {
   yml: "YAML"
 };
 
+const OUTPUT_ONLY_RULES = [
+  "Return only the final processed result.",
+  "Do not explain what you did.",
+  "Do not restate, summarize, classify, or analyze the user's request.",
+  "Do not add labels, headings, prefaces, conclusions, quotes, or wrappers unless they are part of the requested result.",
+  "If the task transforms selected text, output the transformed text only."
+].join(" ");
+
 export function inferLanguage(filename: string): string {
   const extension = filename.split(".").pop()?.toLowerCase() ?? "";
   return EXTENSION_LANGUAGE[extension] ?? "plain text";
@@ -43,8 +51,7 @@ export class PromptBuilder {
     return [
       {
         role: "system",
-        content:
-          "You are Chisel, a precise AI text-processing assistant inside Obsidian. Follow the user's instruction exactly, preserve Markdown when possible, and do not invent unrelated context."
+        content: `You are Chisel, a precise AI text-processing assistant inside Obsidian. Follow the user's instruction exactly and preserve Markdown when possible. ${OUTPUT_ONLY_RULES}`
       },
       {
         role: "user",

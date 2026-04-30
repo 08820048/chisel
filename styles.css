@@ -27,8 +27,8 @@
 .chisel-more-menu {
   flex-direction: column;
   align-items: flex-start;
-  width: max-content;
-  min-width: 168px;
+  width: fit-content;
+  min-width: 0;
   max-width: min(320px, calc(100vw - 16px));
 }
 
@@ -58,6 +58,10 @@
   display: inline-flex;
   width: 16px;
   height: 16px;
+}
+
+.chisel-more-menu .chisel-menu-item {
+  width: 100%;
 }
 
 .chisel-result-modal-shell {
@@ -289,7 +293,7 @@
   background: var(--background-modifier-border);
 }
 
-.chisel-provider-status-dot.is-active {
+.chisel-provider-status-dot.is-configured {
   background: var(--interactive-accent);
 }
 

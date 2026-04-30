@@ -40,6 +40,33 @@ export function createDefaultProviders(): ProviderConfig[] {
       apiKey: "",
       model: "deepseek-chat",
       enabled: false
+    },
+    {
+      id: "minimax",
+      name: "MiniMax",
+      type: "openai",
+      baseURL: "https://api.minimaxi.com/v1",
+      apiKey: "",
+      model: "MiniMax-M2.7",
+      enabled: false
+    },
+    {
+      id: "xiaomimimo",
+      name: "Xiaomi MiMo",
+      type: "openai",
+      baseURL: "https://api.xiaomimimo.com/v1",
+      apiKey: "",
+      model: "mimo-v2.5-pro",
+      enabled: false
+    },
+    {
+      id: "zai",
+      name: "Z.ai",
+      type: "openai",
+      baseURL: "https://api.z.ai/api/paas/v4",
+      apiKey: "",
+      model: "glm-5.1",
+      enabled: false
     }
   ];
 }

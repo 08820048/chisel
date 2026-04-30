@@ -186,7 +186,9 @@ export class ChiselSettingTab extends PluginSettingTab {
       text.createSpan({ cls: "chisel-provider-custom-badge", text: "CUSTOM" });
     }
 
-    item.createSpan({ cls: `chisel-provider-status-dot${provider.enabled ? " is-active" : ""}` });
+    item.createSpan({
+      cls: `chisel-provider-status-dot${this.plugin.providerManager.hasProviderCredential(provider) ? " is-configured" : ""}`
+    });
     if (isDefault) {
       item.setAttr("aria-label", `${provider.name} (${t(this.locale, "general.defaultProvider")})`);
     }
@@ -425,7 +427,10 @@ export class ChiselSettingTab extends PluginSettingTab {
       anthropic: "Claude models including Sonnet and Opus",
       deepseek: "DeepSeek chat and reasoning models",
       gemini: "Gemini models through the OpenAI-compatible API",
-      openai: "OpenAI models including GPT-5, o3, and GPT-4o"
+      minimax: "MiniMax Token Plan models including MiniMax-M2.7",
+      openai: "OpenAI models including GPT-5, o3, and GPT-4o",
+      xiaomimimo: "Xiaomi MiMo OpenAI-compatible models including MiMo-V2.5-Pro",
+      zai: "Z.ai OpenAI-compatible models including GLM-5.1"
     };
 
     return descriptions[provider.id] ?? `${provider.name} models`;
@@ -436,7 +441,10 @@ export class ChiselSettingTab extends PluginSettingTab {
       anthropic: "sparkles",
       deepseek: "waves",
       gemini: "diamond",
-      openai: "bot"
+      minimax: "activity",
+      openai: "bot",
+      xiaomimimo: "sparkles",
+      zai: "sparkles"
     };
 
     return icons[provider.id] ?? (provider.type === "custom" ? "blocks" : "cpu");
@@ -464,6 +472,9 @@ export class ChiselSettingTab extends PluginSettingTab {
     const candidate = `${provider.id} ${provider.name} ${provider.baseURL}`.toLowerCase();
     if (candidate.includes("ollama")) return "ollama";
     if (candidate.includes("deepseek")) return "deepseek";
+    if (candidate.includes("minimax") || candidate.includes("mini max")) return "minimax";
+    if (candidate.includes("xiaomimimo") || candidate.includes("xiaomi") || candidate.includes("mimo")) return "xiaomimimo";
+    if (candidate.includes("z.ai") || candidate.includes("zai") || candidate.includes("glm")) return "zai";
     if (candidate.includes("gemini") || candidate.includes("google")) return "gemini";
     if (candidate.includes("anthropic") || candidate.includes("claude")) return "claude";
     if (candidate.includes("openai")) return "openai";
